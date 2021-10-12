@@ -1,0 +1,123 @@
+---
+title: "Assignment6"
+author: "Jiner Zheng"
+date: "4/5/2018"
+output: html_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+require(ggplot2)
+require(shiny)
+require(maps)
+require(mosaic)
+require(reshape2)
+require(riverplot)
+require(RColorBrewer)
+Obese2 <- read.csv("/Volumes/courses/QAC/qac251/course_materials/Code and Data/Obese2.csv")
+```
+
+a.With the obesity rates data, construct a plot that is similar to the one in DataPoints (Chapter 3, p.128) from earlier in the semester. (Try to get some of the state labels neatly into your graph – notice that it will be difficult to get all labels legible with the amount of space we have available.)
+```{r}
+names(Obese2)[2]<-c("region")
+Obese2<-mutate(Obese2, Year2016=as.numeric(gsub(pattern ="%","",Year2016)),Year1990=as.numeric(gsub(pattern = "%","",Year1990)))
+ggplot(data=Obese2)+
+  geom_segment(aes(x=as.factor(1990),xend=as.factor(2016),y=Year1990,yend=Year2016,color=region),na.rm=TRUE)+
+  geom_point(aes(x=as.factor(2016),y=Year2016,color=region),na.rm = TRUE)+
+  geom_point(aes(x=as.factor(1990),y=Year1990,color=region),na.rm = TRUE)+
+  theme(legend.position = "none")+
+  geom_text(aes(x=as.factor(1990),y=Year1990,color=region,label=region),check_overlap = TRUE,na.rm=TRUE,nudge_x = -0.25,size=2)+
+  geom_text(aes(x=as.factor(2016),y=Year2016,color=region,label=region),check_overlap = TRUE,na.rm=TRUE,nudge_x = 0.25,size=2)+
+  ylab("Rate")+
+  xlab("Year")+
+  ggtitle("Obesity Rates Overtime in States")
+
+```
+
+b. Using your plot from part a, list 4 different insights about the data you are able to answer.
+1) The Obesity rate has increased significantly from 1990 to 2016.
+2) Colorado had the lowest obesity rate in both 1990 and 2016.
+3) The obesity rate of West Virginia has increased more than the obesity rate of Mississippi from 1990 to 2016.
+4) The obesity rates of all states were a lot lower than 20% in 1990.
+
+C.Make a choropleth to compare how the rates have changed over time. Do you prefer this plot to the one you made in part a? Why?
+I prefer the one in Part a, because I can see how much the obesity rates have changed more clearly over time and which states had the highest or lowest obesity rates.
+```{r}
+all_states<-map_data("state")
+Obese2=select(Obese2, "region","Year2016","Year1990")
+Obese2=mutate(Obese2, region=tolower(region))
+Obese2.long<-melt(Obese2, id="region")
+names(Obese2.long)<-c("region","year","rate")
+Obese2.long<-mutate(Obese2.long, year=as.numeric(gsub(pattern ="Year","",year),rate=as.numeric(rate)))
+
+ggplot()+
+  geom_map(data=all_states, aes(map_id=region), map=all_states)+
+  geom_map(data=Obese2.long, aes(map_id=region, fill=rate),map=all_states)+
+  expand_limits(x=all_states$long,y=all_states$lat)+
+  scale_fill_gradient(low="pink",high="purple")+
+  facet_grid(~year)
+```
+
+d.Build a shiny app that allows the user to select the states that they would like to investigate from your plot in part a. (For this part, please use the eval=FALSE option in your corresponding code chunk. That is, I just want to see your code.)
+
+```{r}
+ui<-fluidPage(
+  selectInput(inputId = "myState",
+            label="Select a state",
+            choices=unique(Obese2$region),
+            selected = "west virginia"),
+  plotOutput(outputId = "plotspace")
+)
+
+server<-function(input,output){
+  output$plotspace<-renderPlot({
+    ggplot(data=filter(Obese2, region%in%input$myState))+
+    geom_segment(aes(x=as.factor(1990),xend=as.factor(2016),y=Year1990,yend=Year2016,color=region),na.rm=TRUE)+
+    geom_point(aes(x=as.factor(2016),y=Year2016,color=region),na.rm = TRUE)+
+    geom_point(aes(x=as.factor(1990),y=Year1990,color=region),na.rm = TRUE)+
+    geom_text(aes(x=as.factor(1990),y=Year1990,color=region,label=region),check_overlap = TRUE,na.rm=TRUE,nudge_x = -0.1)+
+    geom_text(aes(x=as.factor(2016),y=Year2016,color=region,label=region),check_overlap = TRUE,na.rm=TRUE,nudge_x = 0.1)+
+    ylab("Rate")+
+    xlab("Year")+
+    ggtitle("Obesity Rates Overtime in States")
+  })
+}
+
+shinyApp(ui=ui,server=server)
+```
+
+
+
+PROBLEM2
+
+```{r}
+nodes1<-data.frame(ID=c("Packaged Medicaments","Vehicle Parts1","Planes, Helicopters, and/or Spacecraft","Cars1","Refined petroleum1","Exports v.s. Imports","Vehicle Parts2","Refined Petroleum2","Computers","Cars2","Crude Petroleum"),
+                  x=c(rep(0,5),5,rep(10,5)),
+                  y=c(1:5,3,1:5),
+                  col=c(brewer.pal(5,"Accent"),"#000000",brewer.pal(5,"Accent")),
+                  labels=c("Packaged Medicaments","Vehicle Parts","Planes, Helicopters, and/or Spacecraft","Cars","Refinedetroleum","Exports v.s. Imports","Vehicle Parts","Refined Petroleum","Computers","Cars","Crude Petroleum"))
+nodes1$col<-paste(nodes1$col,95,sep="")
+edges1<-data.frame(N1=c("Packaged Medicaments","Vehicle Parts1","Planes, Helicopters, and/or Spacecraft","Cars1","Refined petroleum1",rep("Exports v.s. Imports",5)),
+                  N2=c(rep("Exports v.s. Imports",5),"Vehicle Parts2","Refined Petroleum2","Computers","Cars2","Crude Petroleum"),
+                  Value=c(38.1,38.4,53.2,60.8,103,62.8,69.2,92,155,230))
+
+river_data1<-makeRiver(nodes1,edges1)
+
+riverplot(river_data1,lty=0,srt=0,default_style = NULL,gravity = "top",node_margin = 1,nodewidth = 1,plot_area = 0.5,nsteps = 50,add_mid_points = NULL,yscale = "auto",text="R")
+```
+
+```{r}
+nodes2<-data.frame(ID=c("Germany1","Japan1","China1","Mexico1","Canada1","Exports v.s. Imports","Germany2","Japan2","Mexico2","Canada2","China2"),
+                  x=c(rep(0,5),1,rep(2,5)),
+                  y=c(1:5,3,1:5),
+                  col=c(brewer.pal(5,"Accent"),"#000000",brewer.pal(5,"Accent")),
+                  labels=c("Germany","Japan","China","Mexico","Canada","Exports v.s. Imports","Germany","Japan","Mexico","Canada","China"))
+nodes2$col<-paste(nodes2$col,95,sep="")
+edges2<-data.frame(N1=c("Germany1","Japan1","China1","Mexico1","Canada1",rep("Exports v.s. Imports",5)),
+                  N2=c(rep("Exports v.s. Imports",5),"Germany2","Japan2","Mexico2","Canada2","China2"),
+                  Value=c(61.6,67.5,134,194,241,121,128,291,331,432))
+
+river_data2<-makeRiver(nodes2,edges2)
+
+riverplot(river_data2,lty=0,srt=0,default_style = NULL,gravity = "top",node_margin = 1,nodewidth = 1,plot_area = 0.5,nsteps = 50,add_mid_points = NULL,yscale = "auto",text="R")
+```
+

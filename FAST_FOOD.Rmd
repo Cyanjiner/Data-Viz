@@ -1,0 +1,90 @@
+---
+title: "FINAL"
+author: "Jiner Zheng"
+date: "4/18/2018"
+output: html_document
+---
+```{r,warning=FALSE,message=FALSE}
+require(mosaic)
+require(ggplot2)
+require(shiny)
+require(plotly)
+require(circlize)
+require(dplyr)
+fast_food <- read.csv("Desktop/Nutritional Data for Fast Food.csv")
+```
+
+```{r}
+names(fast_food)[4:12]<-c("Serving.Size","Calories","Total.Fat","Saturated.Fat","Trans.Fat","Sodium","Carbs","Sugars","Protein")
+fast_food<-mutate(fast_food, Unsaturated.Fat=Total.Fat-Saturated.Fat)
+fast_food_subset<-filter(fast_food, Fast.Food.Restaurant == "McDonald's" | Fast.Food.Restaurant == "Wendy's" | Fast.Food.Restaurant == "Burger King")
+```
+
+
+
+
+```{r}
+burgers<-filter(fast_food, Type == "Burger")
+ui1 <- fluidPage(
+  radioButtons(inputId = "criteria",
+               label="Select one nutritional element",
+               choices=names(burgers)[4:12],
+               selected="Calories"),
+  plotlyOutput(outputId = "plot")
+)
+
+server1 <- function(input, output) {
+  output$plot <- renderPlotly({
+    plot_ly(data=burgers,
+        x=~Serving.Size,
+        y=~eval(as.symbol(input$criteria)),
+        type="scatter",
+        mode="markers",
+        marker=list(color="red",opacity=0.5,size=10),
+        hoverinfo="text",
+        text=~Fast.Food.Restaurant)%>%
+      layout(title="",
+             xaixs=list(title="Serving Size"),
+             yaixs=list(title=input$criteria))
+  })
+}
+
+shinyApp(ui=ui1, server=server1)
+```
+
+```{r}
+plot_ly(data=burgers,
+        x=~Serving.Size,
+        y=~Calories,
+        type="scatter",
+        mode="markers",
+        marker=list(color="red",opacity=0.5,size=10),
+        hoverinfo="text",
+        text=~Fast.Food.Restaurant)%>%
+  layout(title="",
+         xaixs=list(title="Serving Size"),
+         yaixs=list(title="Calories")
+```
+
+
+```{r}
+ui2<-fluidPage(
+  radioButtons(inputId = "foodtype",
+               label = "Select a type of fast food",
+               choices = unique(fast_food_subset$Type),
+               selected = "Burger"),
+  plotOutput(outputId = "graph")
+)
+server2<-function(input,output){
+  output$graph<-renderPlot({
+    input_subset<-filter(fast_food_subset, Type==input$foodtype)
+    mat=matrix(c(input_subset$Saturated.Fat,input_subset$Unsaturated.Fat),nrow=length(input_subset$Type),ncol=2)
+    rownames(mat)<-input_subset$Fast.Food.Restaurant
+    colnames(mat)<-c("Saturated Fat","Unsaturated Fat")
+    chordDiagram(mat)
+  })
+}
+
+shinyApp(ui=ui2,server=server2)
+```
+
